@@ -49,10 +49,10 @@ cfg = __C
 __C.GLOBAL_RANK = 0
 __C.EPOCH = 0
 # Absolute path to a location to keep some large files, not in this dir.
-__C.ASSETS_PATH = '/home/dcg-adlr-atao-data.cosmos277/assets'
+__C.ASSETS_PATH = ''
 
 # Use class weighted loss per batch to increase loss for low pixel count classes per batch
-__C.BATCH_WEIGHTING = False
+__C.BATCH_WEIGHTING = True
 
 # Border Relaxation Count
 __C.BORDER_WINDOW = 1
@@ -61,7 +61,7 @@ __C.REDUCE_BORDER_EPOCH = -1
 # Comma Seperated List of class id to relax
 __C.STRICTBORDERCLASS = None
 # Where output results get written
-__C.RESULT_DIR = None
+__C.RESULT_DIR = ''
 
 __C.OPTIONS = AttrDict()
 __C.OPTIONS.TEST_MODE = False
@@ -72,13 +72,16 @@ __C.TRAIN = AttrDict()
 __C.TRAIN.RANDOM_BRIGHTNESS_SHIFT_VALUE = 10
 __C.TRAIN.FP16 = False
 
+
 #Attribute Dictionary for Dataset
 __C.DATASET = AttrDict()
 #Cityscapes Dir Location
 __C.DATASET.CITYSCAPES_DIR = \
   os.path.join(__C.ASSETS_PATH, 'data/Cityscapes')
+
 __C.DATASET.CITYSCAPES_CUSTOMCOARSE = \
   os.path.join(__C.ASSETS_PATH, 'data/Cityscapes/autolabelled')
+
 __C.DATASET.CENTROID_ROOT = \
   os.path.join(__C.ASSETS_PATH, 'uniform_centroids')
 #SDC Augmented Cityscapes Dir Location
@@ -87,20 +90,28 @@ __C.DATASET.CITYSCAPES_AUG_DIR = ''
 __C.DATASET.MAPILLARY_DIR = os.path.join(__C.ASSETS_PATH, 'data/Mapillary/data')
 #Kitti Dataset Dir Location
 __C.DATASET.KITTI_DIR = ''
+#CitySurfaces Dataset Dir Location
+__C.DATASET.SATELLITE_DIR = os.path.join(__C.ASSETS_PATH, 'data/citysurfaces')
+
+
 #SDC Augmented Kitti Dataset Dir Location
 __C.DATASET.KITTI_AUG_DIR = ''
 #Camvid Dataset Dir Location
 __C.DATASET.CAMVID_DIR = ''
 #Number of splits to support
 __C.DATASET.CITYSCAPES_SPLITS = 3
+#Number of splits to support
+__C.DATASET.CITYSCAPES_SPLITS = 3
+#Number of splits to support
+__C.DATASET.CITYSCAPES_SPLITS = 3
 __C.DATASET.MEAN = [0.485, 0.456, 0.406]
 __C.DATASET.STD = [0.229, 0.224, 0.225]
 __C.DATASET.NAME = ''
 __C.DATASET.NUM_CLASSES = 0
-__C.DATASET.IGNORE_LABEL = 255
+__C.DATASET.IGNORE_LABEL = -1
 __C.DATASET.DUMP_IMAGES = False
 __C.DATASET.CLASS_UNIFORM_PCT = 0.5
-__C.DATASET.CLASS_UNIFORM_TILE = 1024
+__C.DATASET.CLASS_UNIFORM_TILE = 512
 __C.DATASET.COARSE_BOOST_CLASSES = None
 __C.DATASET.CV = 0
 __C.DATASET.COLORIZE_MASK_FN = None
@@ -295,16 +306,14 @@ def assert_and_infer_cfg(args, make_immutable=True, train_mode=True):
     if args.init_decoder:
         cfg.OPTIONS.INIT_DECODER = True
 
-    cfg.RESULT_DIR = args.result_dir
+    __C.RESULT_DIR = args.result_dir
+   
 
     if args.mask_out_cityscapes:
         cfg.DATASET.MASK_OUT_CITYSCAPES = True
 
     if args.fp16:
         cfg.TRAIN.FP16 = True
-
-    if args.map_crop_val:
-        __C.DATASET.MAPILLARY_CROP_VAL = True
 
     __C.DATASET.CROP_SIZE = args.crop_size
 
@@ -334,8 +343,7 @@ def assert_and_infer_cfg(args, make_immutable=True, train_mode=True):
         __C.MODEL.SEGATTN_BOT_CH = args.segattn_bot_ch
 
     if args.set_cityscapes_root is not None:
-        # '/data/cs_imgs_cv0'
-        # '/data/cs_imgs_cv2'
+
         __C.DATASET.CITYSCAPES_DIR = args.set_cityscapes_root
 
     if args.ocr_alpha is not None:
@@ -359,7 +367,7 @@ def assert_and_infer_cfg(args, make_immutable=True, train_mode=True):
 
     if make_immutable:
         cfg.immutable(True)
-
+    
 
 def update_epoch(epoch):
     # Update EPOCH CTR
