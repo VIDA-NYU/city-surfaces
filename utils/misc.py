@@ -35,7 +35,7 @@ import sys
 import os
 import torch
 import numpy as np
-
+import pandas as pd
 import torchvision.transforms as standard_transforms
 import torchvision.utils as vutils
 
@@ -276,7 +276,7 @@ class ImageDumper():
         self.imgs_to_tensorboard = []
         self.imgs_to_webpage = []
 
-    def dump(self, dump_dict, val_idx):
+    def dump(self, dump_dict, val_idx, testing=None):
         """
         dump a single batch of images
 
@@ -298,51 +298,111 @@ class ImageDumper():
             pass
 
         colorize_mask_fn = cfg.DATASET_INST.colorize_mask
-        idx = 0  # only use first element of batch
+        #idx = 0  # only use first element of batch
 
-        input_image = dump_dict['input_images'][idx]
-        prob_image = dump_dict['assets']['prob_mask'][idx]
-        gt_image = dump_dict['gt_images'][idx]
-        prediction = dump_dict['assets']['predictions'][idx]
-        del dump_dict['assets']['predictions']
-        img_name = dump_dict['img_names'][idx]
-        
-        if self.dump_for_auto_labelling:
-            # Dump Prob
-            prob_fn = '{}_prob.png'.format(img_name)
-            prob_fn = os.path.join(self.save_dir, prob_fn)
-            cv2.imwrite(prob_fn, (prob_image.cpu().numpy()*255).astype(np.uint8))
+        for idx in range(len(dump_dict['input_images'])):
+            input_image = dump_dict['input_images'][idx]
+            #prob_image = dump_dict['assets']['prob_mask'][idx]
+            gt_image = dump_dict['gt_images'][idx]
+            prediction = dump_dict['assets']['predictions'][idx]
+            #dump_dict['assets']['predictions']
+            img_name = dump_dict['img_names'][idx]
+            #for tile2net
+            idd_ = img_name.split('_')[-1]
+            if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
+                err_mask = dump_dict['err_mask'][idx]
+                prob_image = dump_dict['assets']['prob_mask'][idx]
+
+                prob_fn = '{}_prob.png'.format(img_name)
+                prob_fn = os.path.join(self.save_dir, prob_fn)
+                cv2.imwrite(prob_fn, (prob_image.cpu().numpy()*255).astype(np.uint8))
+
+                err_fn = f'{img_name}_err_mask.png'
+                err_fn = os.path.join(self.save_dir,err_fn)
+                err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
+                err_pil.save(os.path.join(self.save_dir, err_fn))
+
+
+            if self.dump_for_auto_labelling:
+                # Dump Prob
+                prob_fn = '{}_prob.png'.format(img_name)
+                prob_fn = os.path.join(self.save_dir, prob_fn)
+                cv2.imwrite(prob_fn, (prob_image.cpu().numpy()*255).astype(np.uint8))
             
-        if self.dump_for_auto_labelling or self.dump_for_submission:
+
+
+            if self.dump_for_auto_labelling or self.dump_for_submission:
+                # Dump Predictions
+                prediction_cpu = np.array(prediction)
+                label_out = np.zeros_like(prediction)
+                submit_fn = '{}.png'.format(img_name)
+                for label_id, train_id in   cfg.DATASET_INST.id_to_trainid.items():
+                    label_out[np.where(prediction_cpu == train_id)] = label_id
+                cv2.imwrite(os.path.join(self.save_dir, submit_fn), label_out)
+                return
+
+            input_image = self.inv_normalize(input_image)
+            input_image = input_image.cpu()
+            input_image = standard_transforms.ToPILImage()(input_image)
+            input_image = input_image.convert("RGB")
+            input_image_fn = f'{img_name}_input.png'
+            gt_fn = '{}_gt.png'.format(img_name)
+            gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
+            # Dump Prob
+            #prob_fn = '{}_prob.png'.format(img_name)
+            #prob_fn = os.path.join(self.save_dir, prob_fn)
+            #cv2.imwrite(prob_fn, (prob_image.cpu().numpy()*255).astype(np.uint8))
+
             # Dump Predictions
-            prediction_cpu = np.array(prediction)
-            label_out = np.zeros_like(prediction)
-            submit_fn = '{}.png'.format(img_name)
-            for label_id, train_id in   cfg.DATASET_INST.id_to_trainid.items():
-                label_out[np.where(prediction_cpu == train_id)] = label_id
-            cv2.imwrite(os.path.join(self.save_dir, submit_fn), label_out)
-            return
+            #prediction_cpu = np.array(prediction)
+            #label_out = np.zeros_like(prediction)
+            #submit_fn = '{}.png'.format(img_name)
+            #for label_id, train_id in   cfg.DATASET_INST.id_to_trainid.items():
+            #    label_out[np.where(prediction_cpu == train_id)] = label_id
+            #cv2.imwrite(os.path.join(self.save_dir, submit_fn), label_out)
 
-        input_image = self.inv_normalize(input_image)
-        input_image = input_image.cpu()
-        input_image = standard_transforms.ToPILImage()(input_image)
-        input_image = input_image.convert("RGB")
-        input_image_fn = f'{img_name}_input.png'
-        input_image.save(os.path.join(self.save_dir, input_image_fn))
+            #err_fn = f'{img_name}_err_mask.png'
+            #err_fn = os.path.join(self.save_dir,err_fn)
+            #err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
+            #err_pil.save(os.path.join(self.save_dir, err_fn))
 
-        gt_fn = '{}_gt.png'.format(img_name)
-        gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
-        gt_pil.save(os.path.join(self.save_dir, gt_fn))
+            if testing:
+                #put the image and prediction side by side instead of overlay
+                # so the prediction can be later used separately.
 
-        prediction_fn = '{}_prediction.png'.format(img_name)
-        prediction_pil = colorize_mask_fn(prediction)
-        prediction_pil.save(os.path.join(self.save_dir, prediction_fn))
+                prediction_pil = colorize_mask_fn(prediction)
+                prediction_pil = prediction_pil.convert('RGB')
 
-        prediction_pil = prediction_pil.convert('RGB')
-        composited = Image.blend(input_image, prediction_pil, 0.4)
-        composited_fn = 'composited_{}.png'.format(img_name)
-        composited_fn = os.path.join(self.save_dir, composited_fn)
-        composited.save(composited_fn)
+                composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
+                composited.paste(input_image, (0, 0))
+                composited.paste(prediction_pil, (prediction_pil.width, 0))
+                composited_fn = 'sidebside_{}.png'.format(img_name)
+                composited_fn = os.path.join(self.save_dir, composited_fn)
+                composited.save(composited_fn)
+                prediction_fn = '{}_pred.png'.format(img_name)
+
+            else:
+                #input_image = self.inv_normalize(input_image)
+                #input_image = input_image.cpu()
+                #input_image = standard_transforms.ToPILImage()(input_image)
+                #input_image = input_image.convert("RGB")
+                #input_image_fn = f'{img_name}_input.png'
+                # input_image.save(os.path.join(self.save_dir, input_image_fn))
+
+                gt_fn = '{}_gt.png'.format(img_name)
+                gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
+                gt_pil.save(os.path.join(self.save_dir, gt_fn))
+
+
+                prediction_fn = '{}_prediction.png'.format(img_name)
+                prediction_pil = colorize_mask_fn(prediction)
+                prediction_pil.save(os.path.join(self.save_dir, prediction_fn))
+
+                prediction_pil = prediction_pil.convert('RGB')
+                composited = Image.blend(input_image, prediction_pil, 0.4)
+                composited_fn = 'composited_{}.png'.format(img_name)
+                composited_fn = os.path.join(self.save_dir, composited_fn)
+                composited.save(composited_fn)
 
         # only visualize a limited number of images
         if val_idx % self.viz_frequency or cfg.GLOBAL_RANK != 0:
