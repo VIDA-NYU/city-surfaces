@@ -3,18 +3,14 @@ Copyright 2020 Nvidia Corporation
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-
 1. Redistributions of source code must retain the above copyright notice, this
    list of conditions and the following disclaimer.
-
 2. Redistributions in binary form must reproduce the above copyright notice,
    this list of conditions and the following disclaimer in the documentation
    and/or other materials provided with the distribution.
-
 3. Neither the name of the copyright holder nor the names of its contributors
    may be used to endorse or promote products derived from this software
    without specific prior written permission.
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -29,12 +25,14 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 import os
 import torch
+import numpy as np
+import pandas as pd
 
 from config import cfg
 from utils.misc import fast_hist, fmt_scale
 from utils.misc import AverageMeter, eval_metrics
 from utils.misc import metrics_per_image
-
+from utils.misc import ImageDumper
 from runx.logx import logx
 
 
@@ -84,7 +82,6 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     Evaluate a single minibatch of images.
      * calculate metrics
      * dump images
-
     There are two primary multi-scale inference types:
       1. 'MSCALE', or in-model multi-scale: where the multi-scale iteration loop is
          handled within the model itself (see networks/mscale.py -> nscale_forward())
@@ -198,12 +195,11 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     return assets, _iou_acc
 
 
-def validate_topn(val_loader, net, criterion, optim, epoch, args):
+def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=True,
+             dump_all_images=True):
     """
     Find worse case failures ...
-
     Only single GPU for now
-
     First pass = calculate TP, FP, FN pixels per image per class
       Take these stats and determine the top20 images to dump per class
     Second pass = dump all those selected images
@@ -215,6 +211,11 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
     ######################################################################
     logx.msg('First pass')
     image_metrics = {}
+    dumper = ImageDumper(val_len=len(val_loader),
+                         dump_all_images=dump_all_images,
+                         dump_assets=dump_assets,
+                         dump_for_auto_labelling=args.dump_for_auto_labelling,
+                         dump_for_submission=args.dump_for_submission)
 
     net.eval()
     val_loss = AverageMeter()
@@ -224,7 +225,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
 
         # Run network
         assets, _iou_acc = \
-            run_minibatch(data, net, criterion, val_loss, True, args, val_idx)
+            eval_minibatch(data, net, criterion, val_loss, True, args, val_idx)
 
         # per-class metrics
         input_images, labels, img_names, _ = data
@@ -286,13 +287,23 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
             inputs = {'images': inputs, 'gts': gt_image}
 
             if cfg.MODEL.MSCALE:
-                output, attn_map = net(inputs)
+                #output, attn_map = net(inputs)
+                output_dict = net(inputs)
             else:
-                output = net(inputs)
+                output_dict = net(inputs)
+        output = output_dict['pred']
 
-        output = torch.nn.functional.softmax(output, dim=1)
-        prob_mask, predictions = output.data.max(1)
-        predictions = predictions.cpu()
+        output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
+        op = output_data.cpu().detach().numpy()
+        np.save(f'{cfg.RESULT_DIR}/output_{epoch}_{val_idx}.npy', op)
+        prob_mask, predictions = output_data.max(1)
+        #define assests based on the eval_minibatch function
+        assets = {}
+        for item in output_dict:
+            smax = torch.nn.functional.softmax(output_dict[item],dim=1)
+            _, pred = smax.data.max(1)
+            assets[item] = pred.cpu().numpy()
+            #print(assets)
 
         # this has shape [bs, h, w]
         img_name = img_names[0]
@@ -303,24 +314,31 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
                                      cfg.DATASET.NUM_CLASSES,
                                      classid)
 
+            input_images, gt_image, img_names, _ = data
             class_name = cfg.DATASET_INST.trainid_to_name[classid]
             error_pixels = worst_images[img_name][classid]
             logx.msg(f'{img_name} {class_name}: {error_pixels}')
             img_names = [img_name + f'_{class_name}']
+            #add assests
+            assets['predictions'] = predictions.numpy()
+            assets['prob_mask'] = prob_mask
+            assets['err_mask'] = err_mask
 
             to_dump = {'gt_images': gt_image,
-                       'input_images': in_image,
+                       'input_images': input_images,
                        'predictions': predictions.numpy(),
                        'err_mask': err_mask,
                        'prob_mask': prob_mask,
-                       'img_names': img_names}
+                       'img_names': img_names,
+                       'assets': assets}
 
             if attn_map is not None:
                 to_dump['attn_maps'] = attn_map
 
             # FIXME!
             # do_dump_images([to_dump])
-
+            #fixed
+            dumper.dump(to_dump,val_idx)
     html_fn = os.path.join(args.result_dir, 'best_images',
                            'topn_failures.html')
     from utils.results_page import ResultsPage
