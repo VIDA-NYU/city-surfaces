@@ -12,7 +12,7 @@ HPARAMS: [
    fp16: true,
    bs_val: 1,
    eval: test,
-   eval_folder = '<PATH TO YOUR FOLDER>'
+   eval_folder: '<PATH TO YOUR FOLDER>',
    snapshot: "ASSETS_PATH/seg_weights/block_c_10classes.pth",
    arch: ocrnet.HRNet_Mscale,
    trunk: hrnetv2, 
