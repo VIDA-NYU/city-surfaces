@@ -16,7 +16,7 @@ Maryam Hosseini, Fabio Miranda, Jianzhe Lin, Claudio T. Silva,
 You can use our pre-trained model to make inference on your own street-level images. Our extended model can classify eight different classes of paving materials:
 
 <p align="center">
-<img src="materials.png" alt="CitySurfaces paving materials" width="90%"/>
+<img src="materials.png" alt="CitySurfaces paving materials" width="75%"/>
 </p>
 
 The team includes:
@@ -30,7 +30,6 @@ The team includes:
 
    * [Installing prerequisites](#installing-prerequisites)
    * [Run inference on your own data](#run-inference-on-your-own-data)
-   * [Example](#example)
 
 
 ## Installing prerequisites
@@ -72,5 +71,5 @@ Run
 You should be able to see images that look like the following:
 
 <p align="center">
-<img src="results.png" alt="CitySurfaces results" width="90%"/>
+<img src="results.png" alt="CitySurfaces results" width="100%"/>
 </p>
