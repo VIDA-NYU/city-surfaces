@@ -1,18 +1,49 @@
-### [Paper](https://arxiv.org/abs/2005.10821) | [YouTube](https://youtu.be/odAGA7pFBGA)  | [Cityscapes Score](https://www.cityscapes-dataset.com/method-details/?submissionID=7836) <br>
+# CitySurfaces: City-scale Semantic Segmentation of Sidewalk Surfaces
 
-Pytorch implementation of our paper [Hierarchical Multi-Scale Attention for Semantic Segmentation](https://arxiv.org/abs/2005.10821).<br>
+<p align="center">
+<img src="overview.png" alt="CitySurfaces" width="90%"/>
+</p>
 
-Please refer to the `sdcnet` branch if you are looking for the code corresponding to [Improving Semantic Segmentation via Video Prediction and Label Relaxation](https://nv-adlr.github.io/publication/2018-Segmentation).
+CitySurfaces is a framework that combines active learning and semantic segmentation to locate, delineate, and classify sidewalk paving materials from street-level images.
+Our framework adopts a recent high-performing semantic segmentation model (Tao et al., 2020), which uses hierarchical multi-scale attention combined with object-contextual representations
 
-## Installation 
+The framework was presented in our [paper](https://arxiv.org/abs/2201.02260) published at the *Sustainable Cities and Society* journal: 
 
-* The code is tested with pytorch 1.3 and python 3.6
-* You can use ./Dockerfile to build an image.
+**CitySurfaces: City-scale semantic segmentation of sidewalk materials**\
+Maryam Hosseini, Fabio Miranda, Jianzhe Lin, Claudio T. Silva, 
+*Sustainable Cities and Society, 2022*
+
+You can use our pre-trained model to make inference on your own street-level images. Our extended model can classify eight different classes of paving materials:
+
+<p align="center">
+<img src="materials.png" alt="CitySurfaces paving materials" width="90%"/>
+</p>
+
+The team includes:
+
+* [Maryam Hosseini](https://maryamhosseini.me) (Rutgers University / New York University)
+* [Fabio Miranda](https://fmiranda.me) (University of Illinois at Chicago)
+* Jianzhe Lin (New York University)
+* [Cláudio T. Silva](https://vgc.poly.edu/~csilva/) (New York University)
+
+## Table of contents
+
+   * [Installing prerequisites](#installing-prerequisites)
+   * [Run inference on your own data](#run-inference-on-your-own-data)
+   * [Example](#example)
 
 
-## Download Weights
+## Installing prerequisites
 
-* Create a directory where you can keep large files. Ideally, not in this directory.
+The framework is based on [NVIDIA Semantic Segmentation](https://github.com/NVIDIA/semantic-segmentation). Just like their original version, the code is tested with pytorch 1.3 and python 3.6. You can use ./Dockerfile to build an image.
+
+## Run inference on your own data 
+
+Follow the instructions below to be able to segment your own image data. Most of the steps are based on NVIDIA's original steps, with modifications regarding weights and dataset names.
+
+### Download Weights
+
+* Create a directory where you can keep large files.
 ```bash
   > mkdir <large_asset_dir>
 ```
@@ -21,88 +52,25 @@ Please refer to the `sdcnet` branch if you are looking for the code correspondin
 
   __C.ASSETS_PATH=<large_asset_dir>
 
-* Download pretrained weights from [google drive](https://drive.google.com/open?id=1fs-uLzXvmsISbS635eRZCc5uzQdBIZ_U) and put into `<large_asset_dir>/seg_weights`
+* Download our pretrained weights from [Google Drive](https://drive.google.com/drive/folders/1W5STd9JmVZkAsSN3TidOMMrv7aZtR-4_?usp=sharing).
 
-## Download/Prepare Data
-
-If using Cityscapes, download Cityscapes data, then update `config.py` to set the path:
-```python
-__C.DATASET.CITYSCAPES_DIR=<path_to_cityscapes>
-```
-
-* Download Autolabelled-Data from [google drive](https://drive.google.com/file/d/1DtPo-WP-hjaOwsbj6ZxTtOo_7R_4TKRG/view?usp=sharing)
-
-If using Cityscapes Autolabelled Images, download Cityscapes data, then update `config.py` to set the path:
-```python
-__C.DATASET.CITYSCAPES_CUSTOMCOARSE=<path_to_cityscapes>
-```
-
-If using Mapillary, download Mapillary data, then update `config.py` to set the path:
-```python
-__C.DATASET.MAPILLARY_DIR=<path_to_mapillary>
-```
-
-
-## Running the code
+### Running the code
 
 The instructions below make use of a tool called `runx`, which we find useful to help automate experiment running and summarization. For more information about this tool, please see [runx](https://github.com/NVIDIA/runx).
 In general, you can either use the runx-style commandlines shown below. Or you can call `python train.py <args ...>` directly if you like.
 
 
-### Run inference on Cityscapes
+### Inference
 
-Dry run:
-```bash
-> python -m runx.runx scripts/eval_cityscapes.yml -i -n
-```
-This will just print out the command but not run. It's a good way to inspect the commandline. 
+Update the `inference-citysurfaces.yml` under scripts directory with the path to your image folder that you would like to make inference on. 
 
-Real run:
+Run 
 ```bash
-> python -m runx.runx scripts/eval_cityscapes.yml -i
+> python -m runx.runx scripts/inference-citysurfaces.yml -i
 ```
 
-The reported IOU should be 86.92. This evaluates with scales of 0.5, 1.0. and 2.0. You will find evaluation results in ./logs/eval_cityscapes/...
+You should be able to see images that look like the following:
 
-### Run inference on Mapillary
-
-```bash
-> python -m runx.runx scripts/eval_mapillary.yml -i
-```
-
-The reported IOU should be 61.05. Note that this must be run on a 32GB node and the use of 'O3' mode for amp is critical in order to avoid GPU out of memory. Results in logs/eval_mapillary/...
-
-### Dump images for Cityscapes
-
-```bash
-> python -m runx.runx scripts/dump_cityscapes.yml -i
-```
-
-This will dump network output and composited images from running evaluation with the Cityscapes validation set. 
-
-### Run inference and dump images on a folder of images
-
-```bash
-> python -m runx.runx scripts/dump_folder.yml -i
-```
-
-You should end up seeing images that look like the following:
-
-![alt text](imgs/composited_sf.png "example inference, composited")
-
-## Train a model
-
-Train cityscapes, using HRNet + OCR + multi-scale attention with fine data and mapillary-pretrained model
-```bash
-> python -m runx.runx scripts/train_cityscapes.yml -i
-```
-
-The first time this command is run, a centroid file has to be built for the dataset. It'll take about 10 minutes. The centroid file is used during training to know how to sample from the dataset in a class-uniform way.
-
-This training run should deliver a model that achieves 84.7 IOU.
-
-## Train SOTA default train-val split
-```bash
-> python -m runx.runx  scripts/train_cityscapes_sota.yml -i
-```
-Again, use `-n` to do a dry run and just print out the command. This should result in a model with 86.8 IOU. If you run out of memory, try to lower the crop size or turn off rmi_loss.
+<p align="center">
+<img src="results.png" alt="CitySurfaces results" width="90%"/>
+</p>
