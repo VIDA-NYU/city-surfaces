@@ -1,7 +1,7 @@
 # CitySurfaces: City-scale Semantic Segmentation of Sidewalk Surfaces
 
 <p align="center">
-<img src="overview.png" alt="CitySurfaces" width="90%"/>
+<img src="overview.png" alt="CitySurfaces" width="85%"/>
 </p>
 
 CitySurfaces is a framework that combines active learning and semantic segmentation to locate, delineate, and classify sidewalk paving materials from street-level images.
@@ -16,7 +16,7 @@ Maryam Hosseini, Fabio Miranda, Jianzhe Lin, Claudio T. Silva,
 You can use our pre-trained model to make inference on your own street-level images. Our extended model can classify eight different classes of paving materials:
 
 <p align="center">
-<img src="materials.png" alt="CitySurfaces paving materials" width="75%"/>
+<img src="materials.png" alt="CitySurfaces paving materials" width="55%"/>
 </p>
 
 The team includes:
@@ -68,8 +68,8 @@ Run
 > python -m runx.runx scripts/inference-citysurfaces.yml -i
 ```
 
-You should be able to see images that look like the following:
+The results should look like the below examples, where you have your input image and segmentation mask, side by side. 
 
 <p align="center">
-<img src="results.png" alt="CitySurfaces results" width="100%"/>
+<img src="results.png" alt="CitySurfaces results" width="70%"/>
 </p>
