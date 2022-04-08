@@ -116,7 +116,8 @@ def setup_loaders(args):
 
     if args.jointwtborder:
         target_train_transform = \
-            extended_transforms.RelaxedBoundaryLossToTensor()
+            extended_transforms.RelaxedBoundaryLossToTensor(cfg.DATASET.NUM_CLASSES,
+cfg.DATASET.IGNORE_LABEL)
     else:
         target_train_transform = extended_transforms.MaskToTensor()
 
@@ -143,6 +144,8 @@ def setup_loaders(args):
         val_name = 'train'
     elif args.eval == 'folder':
         val_name = 'folder'
+    elif args.eval == 'test':
+        val_name = 'test'
     else:
         raise 'unknown eval mode {}'.format(args.eval)
 
