@@ -18,3 +18,4 @@ HPARAMS: [
    trunk: hrnetv2, 
    result_dir: LOGDIR,
   },
+]
