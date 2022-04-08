@@ -51,7 +51,7 @@ Follow the instructions below to be able to segment your own image data. Most of
 
   __C.ASSETS_PATH=<large_asset_dir>
 
-* Download our pretrained weights from [Google Drive](https://drive.google.com/drive/folders/1W5STd9JmVZkAsSN3TidOMMrv7aZtR-4_?usp=sharing).
+* Download our pretrained weights from [Google Drive](https://drive.google.com/drive/folders/1W5STd9JmVZkAsSN3TidOMMrv7aZtR-4_?usp=sharing). Weights should be under `<large_asset_dir>/seg_weights`.
 
 ### Running the code
 
