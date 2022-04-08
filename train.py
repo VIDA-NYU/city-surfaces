@@ -568,7 +568,7 @@ def train(train_loader, net, optim, curr_epoch):
 
 def validate(val_loader, net, criterion, optim, epoch,
              calc_metrics=True,
-             dump_assets=False,  dump_all_images=False):
+             dump_assets=False,  dump_all_images=False, testing=None):
            
     """
     Run validation for one epoch
