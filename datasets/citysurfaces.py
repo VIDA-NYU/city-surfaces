@@ -119,7 +119,7 @@ class Loader(BaseLoader):
             self.all_imgs = self.find_images(img_root, mask_root, img_ext,
                                              mask_ext)
         elif mode =='test':
-            self.all_imgs = make_dataset_folder(eval_folder, test_mode=True)
+            self.all_imgs = make_dataset_folder(eval_folder, testing=True)
         else:
             splits = {'train': 'train',
                       'val': 'val',

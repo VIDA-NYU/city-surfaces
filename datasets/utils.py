@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 
 
-def make_dataset_folder(folder, test_mode=None):
+def make_dataset_folder(folder, testing=None):
     """
     Create Filename list for images in the provided path
 
@@ -13,7 +13,7 @@ def make_dataset_folder(folder, test_mode=None):
     returns: items list with None filled for mask path
     """
     items = os.listdir(folder)
-    if test_mode:
+    if testing:
                 
         items = [(os.path.join(folder, f), '') for f in items]
 
