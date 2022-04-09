@@ -379,8 +379,8 @@ def main():
     tau = 1
     net = network.get_net(args, criterion)
     k = 1
-#    optim, scheduler = get_optimizer(args, net)
-    optim, scheduler = get_optimizer(args, net, tau, k)
+    optim, scheduler = get_optimizer(args, net)
+    # optim, scheduler = get_optimizer(args, net, tau, k)
     # Visualize feature maps
     #activation = {}
     #def get_activation(name):
@@ -434,7 +434,7 @@ def main():
     if args.eval == 'test':
          validate(val_loader, net, criterion=None, optim=None, epoch=0,
                   calc_metrics=False, dump_assets=args.dump_assets,
-                  dump_all_images=True, testing=True, grid=city)
+                  dump_all_images=True, testing=True)
 
          return 0
 
@@ -614,7 +614,7 @@ def validate(val_loader, net, criterion, optim, epoch,
             prediction = assets['predictions'][0]
             values, counts = np.unique(prediction, return_counts=True)
             pred.update({img_names[0]: dict(zip(values, counts))})
-            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True, grid=grid)
+            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True)
         else:
             dumper.dump({'gt_images': labels,
                      'input_images': input_images,
