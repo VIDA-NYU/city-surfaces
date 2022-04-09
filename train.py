@@ -374,13 +374,9 @@ def main():
         logx.msg(msg)
     
     #define the NASA optimizer parameter 
-    iter_tot = len(train_loader)*args.max_epoch
-#    tau = args.tau_factor/sqrt(iter_tot)
-    tau = 1
     net = network.get_net(args, criterion)
-    k = 1
-#    optim, scheduler = get_optimizer(args, net)
-    optim, scheduler = get_optimizer(args, net, tau, k)
+    optim, scheduler = get_optimizer(args, net)
+#    optim, scheduler = get_optimizer(args, net, tau, k)
     # Visualize feature maps
     #activation = {}
     #def get_activation(name):
@@ -428,13 +424,13 @@ def main():
     # There are 4 options for evaluation:
     #  --eval val                           just run validation
     #  --eval val --dump_assets             dump all images and assets
-    #  --eval folder                        just dump all basic images
+    #  --eval folder                        run validation on an input folder of images(calculate metrics) 
     #  --eval folder --dump_assets          dump all images and assets
-
+    #  --eval test                          run inference on an input folder of images  
     if args.eval == 'test':
          validate(val_loader, net, criterion=None, optim=None, epoch=0,
                   calc_metrics=False, dump_assets=args.dump_assets,
-                  dump_all_images=True, testing=True, grid=city)
+                  dump_all_images=True, testing=True)
 
          return 0
 
@@ -580,6 +576,7 @@ def validate(val_loader, net, criterion, optim, epoch,
     :calc_metrics: calculate validation score
     :dump_assets: dump attention prediction(s) images
     :dump_all_images: dump all images, not just N
+    :testing: run inference on a folder of images
     """
     dumper = ImageDumper(val_len=len(val_loader),
                          dump_all_images=dump_all_images,
