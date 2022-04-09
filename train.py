@@ -611,7 +611,7 @@ def validate(val_loader, net, criterion, optim, epoch,
             prediction = assets['predictions'][0]
             values, counts = np.unique(prediction, return_counts=True)
             pred.update({img_names[0]: dict(zip(values, counts))})
-            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True, grid=grid)
+            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True)
         else:
             dumper.dump({'gt_images': labels,
                      'input_images': input_images,

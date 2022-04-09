@@ -116,8 +116,7 @@ def setup_loaders(args):
 
     if args.jointwtborder:
         target_train_transform = \
-            extended_transforms.RelaxedBoundaryLossToTensor(cfg.DATASET.NUM_CLASSES,
-cfg.DATASET.IGNORE_LABEL)
+            extended_transforms.RelaxedBoundaryLossToTensor(cfg.DATASET.NUM_CLASSES,cfg.DATASET.IGNORE_LABEL)
     else:
         target_train_transform = extended_transforms.MaskToTensor()
 
