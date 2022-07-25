@@ -58,11 +58,10 @@ except ImportError:
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.002)
 parser.add_argument('--arch', type=str, default='ocrnet.HRNet_Mscale',
-                    help='Network architecture. We have DeepSRNX50V3PlusD (backbone: ResNeXt50) \
-                    and deepWV3Plus (backbone: WideResNet38).')
+                    help='Network architecture.')
 parser.add_argument('--old_data', action='store_true', default = False, help='sets the dataset to the first one in hrnet')
-parser.add_argument('--dataset', type=str, default='cityscapes',
-                    help='cityscapes, mapillary, camvid, kitti')
+parser.add_argument('--dataset', type=str, default='citysurfaces',
+                    help='citysurfaces')
 parser.add_argument('--dataset_inst', default=None,
                     help='placeholder for dataset instance')
 parser.add_argument('--num_workers', type=int, default=4,
