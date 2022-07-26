@@ -61,16 +61,16 @@ Label = namedtuple( 'Label' , [
 
 labels = [
     #       name                     id    trainId     color
-    Label(  'concrete'             ,  1 ,        0 , (255, 97, 39) ),
-    Label(  'bricks'               ,  2 ,        1 , (244, 35,232) ),
-    Label(  'granite'              ,  3 ,        2 , (102,102,153) ),
-    Label(  'asphalt'              ,  4 ,        3 , ( 85, 85, 85) ),
-    Label(  'mixed'                ,  5 ,        4 , (204,153,102) ),
-    Label(  'road'                 ,  6 ,        5 , (128, 64,128) ),
+    Label(  'concrete'             ,  1 ,        0 , (255, 127, 14) ),
+    Label(  'bricks'               ,  2 ,        1 , (43,  160, 43) ),
+    Label(  'granite'              ,  3 ,        2 , (31,  119, 179) ),
+    Label(  'asphalt'              ,  4 ,        3 , (153, 153, 153) ),
+    Label(  'mixed'                ,  5 ,        4 , (214, 39,  40) ),
+    Label(  'road'                 ,  6 ,        5 , (54,  54,  54) ),
     Label(  'background'           ,  7 ,        6 , (0,  0,  0) ),
-    Label(  'granite block-stone'  ,  8 ,        7 , (236,  0, 140) ),
-    Label(  'hexagonal'            ,  9 ,        8 , (125, 125, 125) ),
-    Label(  'cobblestone'          ,  10,        9 , (133, 96, 168) ),
+    Label(  'granite block-stone'  ,  8 ,        7 , (138, 0,   138) ),
+    Label(  'hexagonal'            ,  9 ,        8 , (240, 110, 170) ),
+    Label(  'cobblestone'          ,  10,        9 , (139, 109, 48) ),
 ]
 
 
