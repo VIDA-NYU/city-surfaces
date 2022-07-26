@@ -34,7 +34,11 @@ The team includes:
 
 ## Installing prerequisites
 
-The framework is based on [NVIDIA Semantic Segmentation](https://github.com/NVIDIA/semantic-segmentation). Just like their original version, the code is tested with pytorch 1.3 and python 3.6. You can use ./Dockerfile to build an image.
+The framework is based on [NVIDIA Semantic Segmentation](https://github.com/NVIDIA/semantic-segmentation). The code is tested with pytorch 1.7 and python 3.9. You can use ./Dockerfile to build an image.
+You can also use the conda_env.txt file to create a conda environment with the required packages.
+```bash
+  > conda create --name <env> --file conda_env.txt
+```
 
 ## Run inference on your own data 
 
