@@ -91,9 +91,7 @@ __C.DATASET.MAPILLARY_DIR = os.path.join(__C.ASSETS_PATH, 'data/Mapillary/data')
 #Kitti Dataset Dir Location
 __C.DATASET.KITTI_DIR = ''
 #CitySurfaces Dataset Dir Location
-__C.DATASET.SATELLITE_DIR = os.path.join(__C.ASSETS_PATH, 'data/citysurfaces')
-
-
+__C.DATASET.CITYSURFACES_DIR = os.path.join(__C.ASSETS_PATH, 'data/citysurfaces')
 #SDC Augmented Kitti Dataset Dir Location
 __C.DATASET.KITTI_AUG_DIR = ''
 #Camvid Dataset Dir Location
