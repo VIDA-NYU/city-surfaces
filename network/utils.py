@@ -35,101 +35,20 @@ import torch.nn.functional as F
 from torch import nn
 
 from network.mynn import Norm2d, Upsample
-from network.xception import xception71
-from network.wider_resnet import wrn38
-from network.SEresnext import se_resnext50_32x4d, se_resnext101_32x4d
-from network.Resnet import resnet50, resnet101
 import network.hrnetv2 as hrnetv2
 
 from runx.logx import logx
 from config import cfg
 
 
-class get_resnet(nn.Module):
-    def __init__(self, trunk_name, output_stride=8):
-        super(get_resnet, self).__init__()
-
-        if trunk_name == 'seresnext-50':
-            resnet = se_resnext50_32x4d()
-        elif trunk_name == 'seresnext-101':
-            resnet = se_resnext101_32x4d()
-        elif trunk_name == 'resnet-50':
-            resnet = resnet50()
-            resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1,
-                                          resnet.relu, resnet.maxpool)
-        elif trunk_name == 'resnet-101':
-            resnet = resnet101()
-            resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1,
-                                          resnet.relu, resnet.maxpool)
-        else:
-            raise ValueError("Not a valid network arch")
-
-        self.layer0 = resnet.layer0
-        self.layer1, self.layer2, self.layer3, self.layer4 = \
-            resnet.layer1, resnet.layer2, resnet.layer3, resnet.layer4
-
-        if output_stride == 8:
-            for n, m in self.layer3.named_modules():
-                if 'conv2' in n:
-                    m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
-                elif 'downsample.0' in n:
-                    m.stride = (1, 1)
-            for n, m in self.layer4.named_modules():
-                if 'conv2' in n:
-                    m.dilation, m.padding, m.stride = (4, 4), (4, 4), (1, 1)
-                elif 'downsample.0' in n:
-                    m.stride = (1, 1)
-        elif output_stride == 16:
-            for n, m in self.layer4.named_modules():
-                if 'conv2' in n:
-                    m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
-                elif 'downsample.0' in n:
-                    m.stride = (1, 1)
-        else:
-            raise 'unsupported output_stride {}'.format(output_stride)
-
-    def forward(self, x):
-        x = self.layer0(x)
-        x = self.layer1(x)
-        s2_features = x
-        x = self.layer2(x)
-        s4_features = x
-        x = self.layer3(x)
-        x = self.layer4(x)
-        return s2_features, s4_features, x
-
-
 def get_trunk(trunk_name, output_stride=8):
     """
     Retrieve the network trunk and channel counts.
+    for CitySurfaces, only the hrnetv2 is supported for now.
     """
     assert output_stride == 8, 'Only stride8 supported right now'
 
-    if trunk_name == 'wrn38':
-        #
-        # FIXME: pass in output_stride once we support stride 16
-        #
-        backbone = wrn38(pretrained=True)
-        s2_ch = 128
-        s4_ch = 256
-        high_level_ch = 4096
-    elif trunk_name == 'xception71':
-        backbone = xception71(output_stride=output_stride, BatchNorm=Norm2d,
-                              pretrained=True)
-        s2_ch = 64
-        s4_ch = 128
-        high_level_ch = 2048
-    elif trunk_name == 'seresnext-50' or trunk_name == 'seresnext-101':
-        backbone = get_resnet(trunk_name, output_stride=output_stride)
-        s2_ch = 48
-        s4_ch = -1
-        high_level_ch = 2048
-    elif trunk_name == 'resnet-50' or trunk_name == 'resnet-101':
-        backbone = get_resnet(trunk_name, output_stride=output_stride)
-        s2_ch = 256
-        s4_ch = -1
-        high_level_ch = 2048
-    elif trunk_name == 'hrnetv2':
+    if trunk_name == 'hrnetv2':
         backbone = hrnetv2.get_seg_model()
         high_level_ch = backbone.high_level_ch
         s2_ch = -1
