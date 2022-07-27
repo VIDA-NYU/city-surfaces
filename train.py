@@ -504,8 +504,7 @@ def train(train_loader, net, optim, curr_epoch):
     for i, data in enumerate(train_loader):
         if i <= warmup_iter:
             start_time = time.time()
-        # inputs = (bs,3,713,713)
-        # gts    = (bs,713,713)
+
         images, gts, _img_name, scale_float = data
         batch_pixel_size = images.size(0) * images.size(2) * images.size(3)
         images, gts, scale_float = images.cuda(), gts.cuda(), scale_float.cuda()
@@ -554,8 +553,6 @@ def train(train_loader, net, optim, curr_epoch):
         loss_metric['loss'].append(train_main_loss.avg)
         loss_metric['lr'].append(optim.param_groups[-1]['lr'])
 
-
-
         if i >= 10 and args.test_mode:
             del data, inputs, gts
             return
@@ -587,6 +584,7 @@ def validate(val_loader, net, criterion, optim, epoch,
     val_loss = AverageMeter()
     iou_acc = 0
     pred = dict()
+    _temp = dict.fromkeys([i for i in range(10)], None)
 
     for val_idx, data in enumerate(val_loader):
         input_images, labels, img_names, _ = data 
@@ -607,9 +605,13 @@ def validate(val_loader, net, criterion, optim, epoch,
         input_images, labels, img_names, _ = data
 
         if testing:
+
             prediction = assets['predictions'][0]
             values, counts = np.unique(prediction, return_counts=True)
-            pred.update({img_names[0]: dict(zip(values, counts))})
+            pred[img_names[0]]=copy.copy(_temp)
+            for v in range(len(values)):
+                pred[img_names[0]][values[v]]=counts[v]
+            # pred.update({img_names[0]: dict(zip(values, counts))})
             dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True)
         else:
             dumper.dump({'gt_images': labels,
@@ -632,10 +634,10 @@ def validate(val_loader, net, criterion, optim, epoch,
         dumper.write_summaries(was_best)
 
     if testing:
+        time_suffix = datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")
         df = pd.DataFrame.from_dict(pred, orient='index')
         df_p = df.div(df.sum(axis=1), axis=0)
-        df_p.to_csv(os.path.join(dumper.save_dir,'freq.csv'), mode = 'a+', header=False)
-
+        df_p.to_csv(os.path.join(dumper.save_dir,f'freq_{time_suffix}.csv'), mode = 'a+', header=[str(i) for i in range(10)])
 
 if __name__ == '__main__':
     main()
