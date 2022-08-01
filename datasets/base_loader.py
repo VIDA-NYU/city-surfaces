@@ -150,29 +150,28 @@ class BaseLoader(data.Dataset):
         return img, mask, scale_float
 
     def read_images(self, img_path, mask_path, mask_out=False):
-        img = Image.open(img_path).convert('RGB')
-        if mask_path is None or mask_path == '':
-            w, h = img.size
-            mask = np.zeros((h, w))
-        else:
-            mask = Image.open(mask_path)
-
-        drop_out_mask = None
-        # This code is specific to cityscapes
-        if(cfg.DATASET.CITYSCAPES_CUSTOMCOARSE in mask_path):
-
-            gtCoarse_mask_path = mask_path.replace(cfg.DATASET.CITYSCAPES_CUSTOMCOARSE, os.path.join(cfg.DATASET.CITYSCAPES_DIR, 'gtCoarse/gtCoarse') )
-            gtCoarse_mask_path = gtCoarse_mask_path.replace('leftImg8bit','gtCoarse_labelIds')          
-            gtCoarse=np.array(Image.open(gtCoarse_mask_path))
-
+        #not the most elegant fix, but handles the corrupted images for now.
+        try:
+            img = Image.open(img_path).convert('RGB')
+            if mask_path is None or mask_path == '':
+                w, h = img.size
+                mask = np.zeros((h, w))
+            else:
+                mask = Image.open(mask_path)
+        except:
+            blck = np.zeros((512, 512))
+            img = Image.fromarray(np.uint8(blck)).convert('RGB')
+            mask = Image.fromarray(np.uint8(blck))
+            msg = "{} corrupted. Replaced with a black image'"
+            logx.msg(msg.format(img_path))
+            # print(f'{img_path} corrupted. Replaced with a black image')
 
 
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
         mask = np.array(mask)
-        if (mask_out):
+        if mask_out:
             mask = self.drop_mask * mask
-
         mask = mask.copy()
         for k, v in self.id_to_trainid.items():
             binary_mask = (mask == k) #+ (gtCoarse == k)
@@ -185,6 +184,7 @@ class BaseLoader(data.Dataset):
 
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
+
 
     def __getitem__(self, index):
         """
