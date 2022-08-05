@@ -28,8 +28,13 @@ The team includes:
 
 ## Table of contents
 
+   * [Updates)
    * [Installing prerequisites](#installing-prerequisites)
    * [Run inference on your own data](#run-inference-on-your-own-data)
+
+## Updates
+
+New weights from our updated model trained on more cities (now including DC, Chicago, and Philadelphia) is uploaded in our [Google Drive](https://drive.google.com/drive/folders/1W5STd9JmVZkAsSN3TidOMMrv7aZtR-4_?usp=sharing). 
 
 
 ## Installing prerequisites
