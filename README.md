@@ -28,7 +28,7 @@ The team includes:
 
 ## Table of contents
 
-   * [Updates)
+   * [Updates](#updates)
    * [Installing prerequisites](#installing-prerequisites)
    * [Run inference on your own data](#run-inference-on-your-own-data)
 
