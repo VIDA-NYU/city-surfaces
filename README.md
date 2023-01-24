@@ -4,14 +4,29 @@
 <img src="imgs/overview.png" alt="CitySurfaces" width="85%"/>
 </p>
 
-CitySurfaces is a framework that combines active learning and semantic segmentation to locate, delineate, and classify sidewalk paving materials from street-level images.
-Our framework adopts a recent high-performing semantic segmentation model (Tao et al., 2020), which uses hierarchical multi-scale attention combined with object-contextual representations
+CitySurfaces is a framework that combines active learning and semantic segmentation to locate, delineate, and classify sidewalk paving materials from street-level images. Our framework adopts a recent high-performing semantic segmentation model (Tao et al., 2020), which uses hierarchical multi-scale attention combined with object-contextual representations
 
-The framework was presented in our [paper](https://arxiv.org/abs/2201.02260) published at the *Sustainable Cities and Society* journal: 
+The framework was presented in our [paper](https://www.sciencedirect.com/science/article/pii/S2210670721008933) published at the *Sustainable Cities and Society* journal (Arxiv link [here](https://arxiv.org/abs/2201.02260)).
 
 **CitySurfaces: City-scale semantic segmentation of sidewalk materials**\
 Maryam Hosseini, Fabio Miranda, Jianzhe Lin, Claudio T. Silva, 
 *Sustainable Cities and Society, 2022*
+
+```
+@article{HOSSEINI2022103630,
+title = {CitySurfaces: City-scale semantic segmentation of sidewalk materials},
+journal = {Sustainable Cities and Society},
+volume = {79},
+pages = {103630},
+year = {2022},
+issn = {2210-6707},
+doi = {https://doi.org/10.1016/j.scs.2021.103630},
+url = {https://www.sciencedirect.com/science/article/pii/S2210670721008933},
+author = {Maryam Hosseini and Fabio Miranda and Jianzhe Lin and Claudio T. Silva},
+keywords = {Sustainable built environment, Surface materials, Urban heat island, Semantic segmentation, Sidewalk assessment, Urban analytics, Computer vision}
+}
+```
+
 
 You can use our pre-trained model to make inference on your own street-level images. Our extended model can classify eight different classes of paving materials:
 
