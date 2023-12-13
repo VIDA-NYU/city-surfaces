@@ -1,8 +1,9 @@
 
    
 # Run inference on your own data with our extended pretrained model
+# Use torch.distributed.launch --nproc_per_node=1 only if using more than one GPUs
 
-CMD: "python -m torch.distributed.launch --nproc_per_node=1 train.py"
+CMD: "python -m torch.distributed.launch --nproc_per_node=1 val.py"
 
 HPARAMS: [
   {
