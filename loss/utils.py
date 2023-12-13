@@ -52,7 +52,7 @@ def get_loss(args):
         criterion = ImageBasedCrossEntropyLoss2d(
             classes=cfg.DATASET.NUM_CLASSES,
             ignore_index=cfg.DATASET.IGNORE_LABEL,
-            upper_bound=args.wt_bound, fp16=args.fp16).cuda()
+            upper_bound=args.wt_bound).cuda()
     elif args.jointwtborder:
         criterion = ImgWtLossSoftNLL(
             classes=cfg.DATASET.NUM_CLASSES,
@@ -73,7 +73,7 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
     """
 
     def __init__(self, classes, weight=None, ignore_index=cfg.DATASET.IGNORE_LABEL,
-                 norm=False, upper_bound=1.0, fp16=False):
+                 norm=False, upper_bound=1.0):
         super(ImageBasedCrossEntropyLoss2d, self).__init__()
         logx.msg("Using Per Image based weighted loss")
         self.num_classes = classes
@@ -82,7 +82,7 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
         self.norm = norm
         self.upper_bound = upper_bound
         self.batch_weights = cfg.BATCH_WEIGHTING
-        self.fp16 = fp16
+
 
     def calculate_weights(self, target):
         """

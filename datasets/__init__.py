@@ -44,7 +44,7 @@ from datasets.randaugment import RandAugment
 
 def setup_loaders(args):
     """
-    Setup Data Loaders[Currently supports Cityscapes, Mapillary and ADE20kin]
+    Setup Data Loaders
     input: argument passed by the user
     return:  training data loader, validation data loader loader,  train_set
     """
@@ -114,11 +114,8 @@ def setup_loaders(args):
 
     target_transform = extended_transforms.MaskToTensor()
 
-    if args.jointwtborder:
-        target_train_transform = \
-            extended_transforms.RelaxedBoundaryLossToTensor(cfg.DATASET.NUM_CLASSES,cfg.DATASET.IGNORE_LABEL)
-    else:
-        target_train_transform = extended_transforms.MaskToTensor()
+
+    target_train_transform = extended_transforms.MaskToTensor()
 
     if args.eval == 'folder':
         val_joint_transform_list = None
@@ -160,7 +157,7 @@ def setup_loaders(args):
 
     update_dataset_inst(dataset_inst=val_set)
 
-    if args.apex:
+    if args.distributed:
         from datasets.sampler import DistributedSampler
         val_sampler = DistributedSampler(val_set, pad=False, permutation=False,
                                          consecutive_sample=False)
@@ -183,7 +180,8 @@ def setup_loaders(args):
             img_transform=train_input_transform,
             label_transform=target_train_transform)
 
-        if args.apex:
+        # Assuming args.distributed indicates if distributed training is being used
+        if args.distributed:
             from datasets.sampler import DistributedSampler
             train_sampler = DistributedSampler(train_set, pad=True,
                                                permutation=True,
@@ -191,6 +189,7 @@ def setup_loaders(args):
             train_batch_size = args.bs_trn
         else:
             train_sampler = None
+            # Multiply batch size by the number of GPUs only if not in distributed mode
             train_batch_size = args.bs_trn * args.ngpu
 
         train_loader = DataLoader(train_set, batch_size=train_batch_size,

@@ -175,12 +175,7 @@ class BaseLoader(data.Dataset):
         mask = mask.copy()
         for k, v in self.id_to_trainid.items():
             binary_mask = (mask == k) #+ (gtCoarse == k)
-            if ('refinement' in mask_path) and cfg.DROPOUT_COARSE_BOOST_CLASSES != None and v in cfg.DROPOUT_COARSE_BOOST_CLASSES and binary_mask.sum() > 0 and 'vidseq' not in mask_path:
-                binary_mask += (gtCoarse == k)
-                binary_mask[binary_mask >= 1] = 1
-                mask[binary_mask] = gtCoarse[binary_mask]
             mask[binary_mask] = v
-
 
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
@@ -203,16 +198,10 @@ class BaseLoader(data.Dataset):
         else:
             img_path, mask_path, centroid, class_id = self.imgs[index]
 
-        mask_out = cfg.DATASET.MASK_OUT_CITYSCAPES and \
-            cfg.DATASET.CUSTOM_COARSE_PROB is not None and \
-            'refinement' in mask_path
-
         img, mask, img_name = self.read_images(img_path, mask_path,
-                                               mask_out=mask_out)
+                                               mask_out=False)
 
-        ######################################################################
-        # Thresholding is done when using coarse-labelled Cityscapes images
-        ######################################################################
+
         if 'refinement' in mask_path:
             
             mask = np.array(mask)

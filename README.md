@@ -87,6 +87,13 @@ Run
 ```bash
 > python -m runx.runx scripts/inference-citysurfaces.yml -i
 ```
+OR
+
+Run directly from the command line with one GPU:
+```bash
+> python -m val --dataset citysurfaces --bs_val 1  --eval test --eval_folder <PATH/TO/YOUR/IMAGE/FOLDER> --snapshot <PATH/TO/PRETRAINED/WEIGHTS/block_c_10classes.pth> --arch ocrnet.HRNet_Mscale --trunk hrnetv2  --result_dir <PATH/TO/SAVE/RESULTS>
+
+``` 
 
 The results should look like the below examples, where you have your input image and segmentation mask, side by side. 
 

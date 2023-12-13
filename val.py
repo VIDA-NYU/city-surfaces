@@ -28,10 +28,7 @@ from __future__ import division
 import argparse
 import os
 import sys
-import time
 import torch
-from math import sqrt 
-from apex import amp
 from runx.logx import logx
 from config import assert_and_infer_cfg, update_epoch, cfg
 from utils.misc import AverageMeter, prep_experiment, eval_metrics
@@ -39,11 +36,18 @@ from utils.misc import ImageDumper
 from utils.trnval_utils import eval_minibatch, validate_topn
 from loss.utils import get_loss
 from loss.optimizer import get_optimizer, restore_opt, restore_net
+import torch.distributed as dist
+
 
 import datasets
 import network
 import pandas as pd
 import numpy as np
+import json
+import copy
+import datetime
+
+#from tile2net.Data import Data
 
 # Import autoresume module
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
@@ -58,15 +62,12 @@ except ImportError:
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.002)
 parser.add_argument('--arch', type=str, default='ocrnet.HRNet_Mscale',
-                    help='Network architecture.')
-parser.add_argument('--old_data', action='store_true', default = False, help='sets the dataset to the first one in hrnet')
-parser.add_argument('--dataset', type=str, default='citysurfaces',
-                    help='citysurfaces')
-parser.add_argument('--dataset_inst', default=None,
-                    help='placeholder for dataset instance')
+                    help='Network architecture')
+parser.add_argument('--dataset', type=str, default='satellite',
+                    help='name of your dataset')
+
 parser.add_argument('--num_workers', type=int, default=4,
                     help='cpu worker threads per dataloader instance')
-
 parser.add_argument('--cv', type=int, default=0,
                     help=('Cross-validation split id to use. Default # of splits set'
                           ' to 3 in config'))
@@ -75,11 +76,6 @@ parser.add_argument('--class_uniform_pct', type=float, default=0.5,
                     help='What fraction of images is uniformly sampled')
 parser.add_argument('--class_uniform_tile', type=int, default=512,
                     help='tile size for class uniform sampling')
-parser.add_argument('--coarse_boost_classes', type=str, default=None,
-                    help='Use coarse annotations for specific classes')
-
-parser.add_argument('--custom_coarse_dropout_classes', type=str, default=None,
-                    help='Drop some classes from auto-labelling')
 
 parser.add_argument('--img_wt_loss', action='store_true', default=True,
                     help='per-image class-weighted loss')
@@ -88,27 +84,15 @@ parser.add_argument('--rmi_loss', action='store_true', default=False,
 parser.add_argument('--batch_weighting', action='store_true', default=True,
                     help=('Batch weighting for class (use nll class weighting using '
                           'batch stats'))
-
-parser.add_argument('--jointwtborder', action='store_true', default=False,
-                    help='Enable boundary label relaxation')
-parser.add_argument('--strict_bdr_cls', type=str, default='',
-                    help='Enable boundary label relaxation for specific classes')
-parser.add_argument('--rlx_off_epoch', type=int, default=80,
-                    help='Turn off border relaxation after specific epoch count')
 parser.add_argument('--rescale', type=float, default=1.0,
                     help='Warm Restarts new lr ratio compared to original lr')
 parser.add_argument('--repoly', type=float, default=1.5,
                     help='Warm Restart new poly exp')
 
-parser.add_argument('--apex', action='store_true', default=True,
-                    help='Use Nvidia Apex Distributed Data Parallel')
-parser.add_argument('--fp16', action='store_true', default=True,
-                    help='Use Nvidia Apex AMP')
-
 parser.add_argument('--local_rank', default=0, type=int,
-                    help='parameter used by apex library')
+                    help='parameter used by DDP')
 parser.add_argument('--global_rank', default=0, type=int,
-                    help='parameter used by apex library')
+                    help='parameter used by DDP')
 
 parser.add_argument('--optimizer', type=str, default='sgd', help='optimizer')
 parser.add_argument('--amsgrad', action='store_true', help='amsgrad for adam')
@@ -138,19 +122,20 @@ parser.add_argument('--poly_exp', type=float, default=2.0,
                     help='polynomial LR exponent')
 parser.add_argument('--poly_step', type=int, default=110,
                     help='polynomial epoch step')
-parser.add_argument('--bs_trn', type=int, default=2,
-                    help='Batch size for training per gpu')
+
 parser.add_argument('--bs_val', type=int, default=1,
                     help='Batch size for Validation per gpu')
 parser.add_argument('--crop_size', type=str, default='640,640',
                     help=('training crop size: either scalar or h,w'))
+
 parser.add_argument('--scale_min', type=float, default=0.5,
                     help='dynamically scale training images down to this size')
 parser.add_argument('--scale_max', type=float, default=2.0,
                     help='dynamically scale training images up to this size')
+
 parser.add_argument('--weight_decay', type=float, default=1e-4)
 parser.add_argument('--momentum', type=float, default=0.9)
-parser.add_argument('--snapshot', type=str, default=None)
+parser.add_argument('--snapshot', type=str, default=None, help = 'path to the model weight')
 parser.add_argument('--resume', type=str, default=None,
                     help=('continue training from a checkpoint. weights, '
                           'optimizer, schedule are restored'))
@@ -160,7 +145,7 @@ parser.add_argument('--exp', type=str, default='default',
                     help='experiment directory name')
 parser.add_argument('--result_dir', type=str, default=None,
                     help='where to write log output')
-parser.add_argument('--syncbn', action='store_true', default=False,
+parser.add_argument('--syncbn', action='store_true', default=True,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
@@ -169,8 +154,7 @@ parser.add_argument('--test_mode', action='store_true', default=False,
                           'Runs code for 1 epoch of train and val'))
 parser.add_argument('-wb', '--wt_bound', type=float, default=1.0,
                     help='Weight Scaling for the losses')
-parser.add_argument('--maxSkip', type=int, default=0,
-                    help='Skip x number of  frames of video augmented dataset')
+
 parser.add_argument('--scf', action='store_true', default=False,
                     help='scale correction factor')
 # Full Crop Training
@@ -192,6 +176,7 @@ parser.add_argument('--eval', type=str, default=None,
                           'folder'))
 parser.add_argument('--eval_folder', type=str, default=None,
                     help='path to frames to evaluate')
+
 parser.add_argument('--three_scale', action='store_true', default=False)
 parser.add_argument('--alt_two_scale', action='store_true', default=False)
 parser.add_argument('--do_flip', action='store_true', default=False)
@@ -213,6 +198,7 @@ parser.add_argument('--init_decoder', default=False, action='store_true',
                     help='initialize decoder with kaiming normal')
 parser.add_argument('--dump_topn', type=int, default=50,
                     help='Dump worst val images')
+
 parser.add_argument('--dump_assets', action='store_true',
                     help='Dump interesting assets')
 parser.add_argument('--dump_all_images', action='store_true',
@@ -223,11 +209,8 @@ parser.add_argument('--dump_for_auto_labelling', action='store_true',
                     help='Dump assets for autolabelling')
 parser.add_argument('--dump_topn_all', action='store_true', default=True,
                     help='dump topN worst failures')
-parser.add_argument('--custom_coarse_prob', type=float, default=None,
-                    help='Custom Coarse Prob')
-parser.add_argument('--only_coarse', action='store_true', default=False)
-parser.add_argument('--mask_out_cityscapes', action='store_true',
-                    default=False)
+
+
 parser.add_argument('--ocr_aspp', action='store_true', default=False)
 parser.add_argument('--map_crop_val', action='store_true', default=False)
 parser.add_argument('--aspp_bot_ch', type=int, default=None)
@@ -244,8 +227,6 @@ parser.add_argument('--mscale_init', type=float, default=None,
                     help='default attention initialization')
 parser.add_argument('--attnscale_bn_head', action='store_true',
                     default=False)
-parser.add_argument('--set_cityscapes_root', type=str, default=None,
-                    help='override cityscapes default root dir')
 parser.add_argument('--ocr_alpha', type=float, default=None,
                     help='set HRNet OCR auxiliary loss weight')
 parser.add_argument('--val_freq', type=int, default=1,
@@ -258,21 +239,21 @@ parser.add_argument('--segattn_bot_ch', type=int, default=None,
                     help='bottleneck channels for seg and attn heads')
 parser.add_argument('--grad_ckpt', action='store_true',
                     default=False)
+parser.add_argument('--distributed', type=int, default=False,)
 parser.add_argument('--no_metrics', action='store_true', default=False,
                     help='prevent calculation of metrics')
 parser.add_argument('--supervised_mscale_loss_wt', type=float, default=None,
                     help='weighting for the supervised loss')
 parser.add_argument('--ocr_aux_loss_rmi', action='store_true', default=False,
                     help='allow rmi for aux loss')
-parser.add_argument('--tau_factor', type=float, default=1,
-                    help='Factor for NASA optimzation function')
+
+
 
 
 args = parser.parse_args()
 args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                     'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}
 
-# Enable CUDNN Benchmarking optimization
 torch.backends.cudnn.benchmark = True
 if args.deterministic:
     torch.backends.cudnn.deterministic = True
@@ -284,20 +265,31 @@ args.world_size = 1
 if args.test_mode:
     args.max_epoch = 2
 
-if 'WORLD_SIZE' in os.environ and args.apex:
-    # args.apex = int(os.environ['WORLD_SIZE']) > 1
-    args.world_size = int(os.environ['WORLD_SIZE'])
-    args.global_rank = int(os.environ['RANK'])
 
-if args.apex:
-    print('Global Rank: {} Local Rank: {}'.format(
-        args.global_rank, args.local_rank))
+num_gpus = torch.cuda.device_count()
+
+if num_gpus > 1:
+    # Distributed training setup
+
+    args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+    dist.init_process_group(backend='nccl', init_method='env://')
+    args.local_rank = dist.get_rank()
     torch.cuda.set_device(args.local_rank)
-    torch.distributed.init_process_group(backend='nccl',
-                                         init_method='env://')
+    args.distributed = True
+    print(f'Using distributed training with {args.world_size} GPUs.')
+elif num_gpus == 1:
+    # Single GPU setup
+    print('Using a single GPU.')
+    args.local_rank = 0
+    torch.cuda.set_device(args.local_rank)
+else:
+    # CPU setup
+    print('Using CPU.')
+    args.local_rank = -1  # Indicating CPU usage
 
 
-    
+
+
 def check_termination(epoch):
     if AutoResume:
         shouldterminate = AutoResume.termination_requested()
@@ -338,68 +330,24 @@ def main():
         datasets.setup_loaders(args)
     criterion, criterion_val = get_loss(args)
 
-    auto_resume_details = None
-    if AutoResume:
-        auto_resume_details = AutoResume.get_resume_details()
 
-    if auto_resume_details:
-        checkpoint_fn = auto_resume_details.get("RESUME_FILE", None)
-        checkpoint = torch.load(checkpoint_fn,
-                                map_location=torch.device('cpu'))
-        args.result_dir = auto_resume_details.get("TENSORBOARD_DIR", None)
-        args.start_epoch = int(auto_resume_details.get("EPOCH", None)) + 1
-        args.restore_net = True
-        args.restore_optimizer = True
-        msg = ("Found details of a requested auto-resume: checkpoint={}"
-               " tensorboard={} at epoch {}")
-        logx.msg(msg.format(checkpoint_fn, args.result_dir,
-                            args.start_epoch))
-    elif args.resume:
-        checkpoint = torch.load(args.resume,
-                                map_location=torch.device('cpu'))
-        args.arch = checkpoint['arch']
-        args.start_epoch = int(checkpoint['epoch']) + 1
-        args.restore_net = True
-        args.restore_optimizer = True
-        msg = "Resuming from: checkpoint={}, epoch {}, arch {}"
-        logx.msg(msg.format(args.resume, args.start_epoch, args.arch))
-    elif args.snapshot:
+    if args.snapshot:
         if 'ASSETS_PATH' in args.snapshot:
             args.snapshot = args.snapshot.replace('ASSETS_PATH', cfg.ASSETS_PATH)
         checkpoint = torch.load(args.snapshot,
                                 map_location=torch.device('cpu'))
         args.restore_net = True
-        msg = "Loading weights from: checkpoint={}".format(args.snapshot)
+        msg = f"Loading weights from: checkpoint={args.snapshot}"
         logx.msg(msg)
-    
-    #define the NASA optimizer parameter 
+
+
     net = network.get_net(args, criterion)
     optim, scheduler = get_optimizer(args, net)
-#    optim, scheduler = get_optimizer(args, net, tau, k)
-    # Visualize feature maps
-    #activation = {}
-    #def get_activation(name):
-        #def hook(model, input, output):
-            #activation[name] = output.detach()
-        #return hook
 
-    #net.layer[0].register_forward_hook(get_activation('conv1'))
-    #data, _ = dataset[0]
-    #data.unsqueeze_(0)
-    #output = model(data)
-
-    #act = activation['conv1'].squeeze()
-    #fig, axarr = plt.subplots(act.size(0))
-    #for idx in range(act.size(0)):
-        #axarr[idx].imshow(act[idx])
-
-    if args.fp16:
-        net, optim = amp.initialize(net, optim, opt_level=args.amp_opt_level)
-
-    net = network.wrap_network_in_dataparallel(net, args.apex)
+    net = network.wrap_network_in_dataparallel(args, net)
 
     if args.summary:
-        
+
         from thop import profile
         img = torch.randn(1, 3, 640, 640).cuda()
         mask = torch.randn(1, 1, 640, 640).cuda()
@@ -407,8 +355,10 @@ def main():
         print(f'macs {macs} params {params}')
         sys.exit()
 
+
     if args.restore_optimizer:
         restore_opt(optim, checkpoint)
+
     if args.restore_net:
         restore_net(net, checkpoint)
 
@@ -423,15 +373,14 @@ def main():
     # There are 4 options for evaluation:
     #  --eval val                           just run validation
     #  --eval val --dump_assets             dump all images and assets
-    #  --eval folder                        run validation on an input folder of images(calculate metrics) 
+    #  --eval folder                        just dump all basic images
     #  --eval folder --dump_assets          dump all images and assets
-    #  --eval test                          run inference on an input folder of images  
-    if args.eval == 'test':
-         validate(val_loader, net, criterion=None, optim=None, epoch=0,
-                  calc_metrics=False, dump_assets=args.dump_assets,
-                  dump_all_images=True, testing=True)
 
-         return 0
+    if args.eval == 'test':
+        validate(val_loader, net, criterion=None, optim=None, epoch=0,
+                 calc_metrics=False, dump_assets=args.dump_assets,
+                 dump_all_images=True, testing=True)
+        return 0
 
     if args.eval == 'val':
 
@@ -443,125 +392,23 @@ def main():
                      dump_all_images=args.dump_all_images,
                      calc_metrics=not args.no_metrics)
         return 0
+
     elif args.eval == 'folder':
         # Using a folder for evaluation means to not calculate metrics
-        validate(val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
+        validate(val_loader, net, criterion=criterion_val, optim=None, epoch=0,
                  calc_metrics=False, dump_assets=args.dump_assets,
                  dump_all_images=True)
         return 0
+
     elif args.eval is not None:
         raise 'unknown eval option {}'.format(args.eval)
 
-    for epoch in range(args.start_epoch, args.max_epoch):
-        update_epoch(epoch)
-
-        if args.only_coarse:
-            train_obj.only_coarse()
-            train_obj.build_epoch()
-            if args.apex:
-                train_loader.sampler.set_num_samples()
-
-        elif args.class_uniform_pct:
-            if epoch >= args.max_cu_epoch:
-                train_obj.disable_coarse()
-                train_obj.build_epoch()
-                if args.apex:
-                    train_loader.sampler.set_num_samples()
-            else:
-                train_obj.build_epoch()
-        else:
-            pass
-
-        train(train_loader, net, optim, epoch)
-
-        if args.apex:
-            train_loader.sampler.set_epoch(epoch + 1)
-
-        if epoch % args.val_freq == 0:
-            validate(val_loader, net, criterion_val, optim, epoch)
-
-        scheduler.step()
-
-        if check_termination(epoch):
-            return 0
-
-
-def train(train_loader, net, optim, curr_epoch):
-    """
-    Runs the training loop per epoch
-    train_loader: Data loader for train
-    net: thet network
-    optimizer: optimizer
-    curr_epoch: current epoch
-    return:
-    """
-    net.train()
-
-    train_main_loss = AverageMeter()
-    start_time = None
-    warmup_iter = 10
-    loss_metric = dict([('epoch', []), ('loss', []), ('lr', [])])
-    for i, data in enumerate(train_loader):
-        if i <= warmup_iter:
-            start_time = time.time()
-
-        images, gts, _img_name, scale_float = data
-        batch_pixel_size = images.size(0) * images.size(2) * images.size(3)
-        images, gts, scale_float = images.cuda(), gts.cuda(), scale_float.cuda()
-        inputs = {'images': images, 'gts': gts}
-
-        optim.zero_grad()
-        main_loss = net(inputs)
-
-        if args.apex:
-            log_main_loss = main_loss.clone().detach_()
-            torch.distributed.all_reduce(log_main_loss,
-                                         torch.distributed.ReduceOp.SUM)
-            log_main_loss = log_main_loss / args.world_size
-        else:
-            main_loss = main_loss.mean()
-            log_main_loss = main_loss.clone().detach_()
-
-        train_main_loss.update(log_main_loss.item(), batch_pixel_size)
-        if args.fp16:
-            with amp.scale_loss(main_loss, optim) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            main_loss.backward()
-
-        optim.step()
-
-        if i >= warmup_iter:
-            curr_time = time.time()
-            batches = i - warmup_iter + 1
-            batchtime = (curr_time - start_time) / batches
-        else:
-            batchtime = 0
-
-        msg = ('[epoch {}], [iter {} / {}], [train main loss {:0.6f}],'
-               ' [lr {:0.6f}] [batchtime {:0.3g}]')
-        msg = msg.format(
-            curr_epoch, i + 1, len(train_loader), train_main_loss.avg,
-            optim.param_groups[-1]['lr'], batchtime)
-        logx.msg(msg)
-
-        metrics = {'loss': train_main_loss.avg,
-                   'lr': optim.param_groups[-1]['lr']}
-        curr_iter = curr_epoch * len(train_loader) + i
-        logx.metric('train', metrics, curr_iter)
-        loss_metric['epoch'].append(curr_epoch)
-        loss_metric['loss'].append(train_main_loss.avg)
-        loss_metric['lr'].append(optim.param_groups[-1]['lr'])
-
-        if i >= 10 and args.test_mode:
-            del data, inputs, gts
-            return
-        del data
+    
 
 def validate(val_loader, net, criterion, optim, epoch,
              calc_metrics=True,
-             dump_assets=False,  dump_all_images=False, testing=None):
-           
+             dump_assets=False,
+             dump_all_images=False, testing=None):
     """
     Run validation for one epoch
     :val_loader: data loader for validation
@@ -572,7 +419,6 @@ def validate(val_loader, net, criterion, optim, epoch,
     :calc_metrics: calculate validation score
     :dump_assets: dump attention prediction(s) images
     :dump_all_images: dump all images, not just N
-    :testing: run inference on a folder of images
     """
     dumper = ImageDumper(val_len=len(val_loader),
                          dump_all_images=dump_all_images,
@@ -585,9 +431,8 @@ def validate(val_loader, net, criterion, optim, epoch,
     iou_acc = 0
     pred = dict()
     _temp = dict.fromkeys([i for i in range(10)], None)
-
     for val_idx, data in enumerate(val_loader):
-        input_images, labels, img_names, _ = data 
+        input_images, labels, img_names, _ = data
         if args.dump_for_auto_labelling or args.dump_for_submission:
             submit_fn = '{}.png'.format(img_names[0])
             if val_idx % 20 == 0:
@@ -598,26 +443,27 @@ def validate(val_loader, net, criterion, optim, epoch,
         # Run network
         assets, _iou_acc = \
             eval_minibatch(data, net, criterion, val_loss, calc_metrics,
-                          args, val_idx)
+                           args, val_idx)
 
         iou_acc += _iou_acc
 
         input_images, labels, img_names, _ = data
 
         if testing:
-
             prediction = assets['predictions'][0]
             values, counts = np.unique(prediction, return_counts=True)
             pred[img_names[0]]=copy.copy(_temp)
             for v in range(len(values)):
                 pred[img_names[0]][values[v]]=counts[v]
+
             # pred.update({img_names[0]: dict(zip(values, counts))})
-            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets}, val_idx, testing=True)
+            dumper.dump({'gt_images': labels,'input_images': input_images,'img_names': img_names, 'assets': assets},
+                        val_idx, testing=True)
         else:
             dumper.dump({'gt_images': labels,
-                     'input_images': input_images,
-                     'img_names': img_names,
-                     'assets': assets}, val_idx)
+                         'input_images': input_images,
+                         'img_names': img_names,
+                         'assets': assets}, val_idx)
 
         if val_idx > 5 and args.test_mode:
             break
@@ -634,10 +480,14 @@ def validate(val_loader, net, criterion, optim, epoch,
         dumper.write_summaries(was_best)
 
     if testing:
-        time_suffix = datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")
+        sufix = datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")
         df = pd.DataFrame.from_dict(pred, orient='index')
+        df.to_csv(os.path.join(dumper.save_dir,f'raw_numb_{sufix}.csv'), mode = 'a+')
         df_p = df.div(df.sum(axis=1), axis=0)
-        df_p.to_csv(os.path.join(dumper.save_dir,f'freq_{time_suffix}.csv'), mode = 'a+', header=[str(i) for i in range(10)])
+        # df_p.to_csv(os.path.join(dumper.save_dir,'freq.csv'), mode = 'a+', header=False)
+        df_p.to_csv(os.path.join(dumper.save_dir,f'freq_{sufix}.csv'), mode = 'a+')
+
+
 
 if __name__ == '__main__':
     main()

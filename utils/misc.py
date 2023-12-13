@@ -107,7 +107,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
 
     iou_per_scale = {}
     iou_per_scale[1.0] = iou_acc
-    if args.apex:
+    if args.distributed:
         iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
         torch.distributed.all_reduce(iou_acc_tensor,
                                      op=torch.distributed.ReduceOp.SUM)
@@ -256,20 +256,11 @@ class ImageDumper():
         self.imgs_to_tensorboard = []
         self.imgs_to_webpage = []
 
-        if cfg.DATASET.NAME == 'cityscapes':
-            # If all images of a dataset are identical, as in cityscapes,
-            # there's no need to crop the images before tiling them into a
-            # grid for displaying in tensorboard. Otherwise, need to center
-            # crop the images
-            self.visualize = standard_transforms.Compose([
-                standard_transforms.Resize(384),
-                standard_transforms.ToTensor()
-            ])
-        else:
-            self.visualize = standard_transforms.Compose([
-                standard_transforms.Resize(384),
-                standard_transforms.CenterCrop((384, 384)),
-                standard_transforms.ToTensor()
+
+        self.visualize = standard_transforms.Compose([
+            standard_transforms.Resize(384),
+            standard_transforms.CenterCrop((384, 384)),
+            standard_transforms.ToTensor()
             ])
 
     def reset(self):

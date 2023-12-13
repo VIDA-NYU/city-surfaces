@@ -101,23 +101,11 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
 
 
     #####
-    if(cfg.DATASET.CITYSCAPES_CUSTOMCOARSE in label_fn):
-            gtCoarse_mask_path = label_fn.replace(cfg.DATASET.CITYSCAPES_CUSTOMCOARSE, os.path.join(cfg.DATASET.CITYSCAPES_DIR, 'gtCoarse/gtCoarse') )
-            gtCoarse_mask_path = gtCoarse_mask_path.replace('leftImg8bit','gtCoarse_labelIds')          
-            gtCoarse=np.array(Image.open(gtCoarse_mask_path))
-
-    
-    ####
 
     mask_copy = mask.copy()
     if id2trainid:
         for k, v in id2trainid.items():
             binary_mask = (mask_copy == k)
-            #This should only apply to auto labelled images
-            if ('refinement' in label_fn) and cfg.DROPOUT_COARSE_BOOST_CLASSES != None and v in cfg.DROPOUT_COARSE_BOOST_CLASSES and binary_mask.sum() > 0:
-                binary_mask += (gtCoarse == k)
-                binary_mask[binary_mask >= 1] = 1
-                mask[binary_mask] = gtCoarse[binary_mask]
             mask[binary_mask] = v
 
     for x_offs, y_offs in tile_locations:
