@@ -36,10 +36,10 @@ You can use our pre-trained model to make inference on your own street-level ima
 
 The team includes:
 
-* [Maryam Hosseini](https://maryamhosseini.me) (Rutgers University / New York University)
-* [Fabio Miranda](https://fmiranda.me) (University of Illinois at Chicago)
-* Jianzhe Lin (New York University)
-* [Cláudio T. Silva](https://vgc.poly.edu/~csilva/) (New York University)
+* [Maryam Hosseini](https://maryamhosseini.me) (MIT / NYU)
+* [Fabio Miranda](https://fmiranda.me) (UIC)
+* Jianzhe Lin (NYU)
+* [Cláudio T. Silva](https://vgc.poly.edu/~csilva/) (NYU)
 
 ## Table of contents
 
