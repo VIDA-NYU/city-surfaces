@@ -8,7 +8,6 @@ CMD: "python -m torch.distributed.launch --nproc_per_node=1 val.py"
 HPARAMS: [
   {
    dataset: citysurfaces,
-   syncbn: true,
    bs_val: 1,
    eval: test,
    eval_folder: '<PATH TO YOUR FOLDER>',
