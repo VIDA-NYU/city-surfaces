@@ -9,8 +9,6 @@ HPARAMS: [
   {
    dataset: citysurfaces,
    syncbn: true,
-   apex: true,
-   fp16: true,
    bs_val: 1,
    eval: test,
    eval_folder: '<PATH TO YOUR FOLDER>',
