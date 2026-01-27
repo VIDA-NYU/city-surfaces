@@ -12,6 +12,14 @@ dependencies = [
     "torch>=2.1",
     "torchvision>=0.16",
     "torchaudio>=2.1",
+    "numpy",
+    "pandas",
+    "runx",
+    "matplotlib",
+    "tensorboardX",
+    "coolname",
+    "pyyaml", 
+    "pillow"
 ]
 
 [tool.setuptools]
