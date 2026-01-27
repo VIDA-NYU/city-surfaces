@@ -19,7 +19,8 @@ dependencies = [
     "tensorboardX",
     "coolname",
     "pyyaml", 
-    "pillow"
+    "pillow",
+    "opencv-python"
 ]
 
 [tool.setuptools]
